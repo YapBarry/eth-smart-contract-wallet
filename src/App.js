@@ -8,9 +8,9 @@ import sendEth from './03_send';
 
 function App() {  
   // Password management states
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState(localStorage.getItem('password') || ''); // Modified: Load password from localStorage if exists
   const [isFirstTime, setIsFirstTime] = useState(true);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('isLoggedIn')); // Modified: Check login status from localStorage
   const [privateKey, setPrivateKey] = useState('');
 
   // For displaying information about the account 
@@ -58,6 +58,8 @@ function App() {
         alert('Password set successfully!');
         setIsFirstTime(false);
         setIsLoggedIn(true);
+        localStorage.setItem('password', password); // New: Store password in localStorage
+        localStorage.setItem('isLoggedIn', 'true'); // New: Mark the user as logged in in localStorage
       }
     } catch (error) {
       console.error('Error setting password:', error);
@@ -77,6 +79,7 @@ function App() {
       if (data.privateKey) {
         setPrivateKey(data.privateKey);
         setIsLoggedIn(true);
+        localStorage.setItem('isLoggedIn', 'true'); // New: Store login status in localStorage
       } else {
         alert('Invalid password');
       }
