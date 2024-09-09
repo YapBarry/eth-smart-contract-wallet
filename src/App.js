@@ -11,7 +11,7 @@ function App() {
   const [password, setPassword] = useState(localStorage.getItem('password') || ''); // Modified: Load password from localStorage if exists
   const [isFirstTime, setIsFirstTime] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('isLoggedIn')); // Modified: Check login status from localStorage
-  const [privateKey, setPrivateKey] = useState('');
+  const [privateKey, setPrivateKey] = useState(localStorage.getItem('privateKey') || '');
 
   // For displaying information about the account 
   const [seedPhrase, setSeedPhrase] = useState('');
@@ -78,6 +78,7 @@ function App() {
       const data = await response.json();
       if (data.privateKey) {
         setPrivateKey(data.privateKey);
+        localStorage.setItem('privateKey', data.privateKey);
         setIsLoggedIn(true);
         localStorage.setItem('isLoggedIn', 'true'); // New: Store login status in localStorage
       } else {
@@ -102,6 +103,7 @@ function App() {
       const privateKeyArray = Object.values(parsedData.privateKey);
       const privateKeyHex = privateKeyArray.map(num => num.toString(16).padStart(2, '0')).join('');
       setPrivateKey(privateKeyHex); // ***** check if we still need this ********
+      localStorage.setItem('privateKey', privateKeyHex);
 
       setAddress1(parsedData.address);
       setShowPrompt(false);
@@ -121,6 +123,7 @@ function App() {
       const privateKeyArray = Object.values(parsedData.privateKey);
       const privateKeyHex = privateKeyArray.map(num => num.toString(16).padStart(2, '0')).join('');
       setPrivateKey(privateKeyHex); // ***** check if we still need this ********
+      localStorage.setItem('privateKey', privateKeyHex);
 
       setAddress1(parsedData.address);
       setShowPrompt(false);
