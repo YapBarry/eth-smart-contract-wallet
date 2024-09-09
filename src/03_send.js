@@ -1,29 +1,25 @@
-const { getDefaultProvider, Wallet, parseEther } = require("ethers");
-const { readFileSync } = require("fs");
+import { getDefaultProvider, Wallet, parseEther } from "ethers";
 
-async function main(_receiverAddress, _ethAmount) {
-    const network = "sepolia";
+// Function to send ETH in React
+export default async function sendEth(privateKeyHex, _receiverAddress, _ethAmount) {
+  try {
+    const network = "https://1rpc.io/sepolia"; // or whichever network you're using
     const provider = getDefaultProvider(network);
-    const accountRawData = readFileSync("account 1.json", "utf8");
-    const accountData = JSON.parse(accountRawData);
-    const privateKey = Object.values(accountData.privateKey);
-  
-    // To convert privateKey from uint8array to hexadecimal as Wallet() only accepts hexadecimal input
-    const privateKeyHex = privateKey.map(byte => byte.toString(16).padStart(2, '0')).join(''); 
-    //   console.log(privateKeyHex);
-  
+
+    // Create a signer using the private key and provider
     const signer = new Wallet(privateKeyHex, provider);
+
+    // Send the transaction
     const transaction = await signer.sendTransaction({
-        to: _receiverAddress,
-        value: parseEther(_ethAmount),
+      to: _receiverAddress,
+      value: parseEther(_ethAmount),
     });
 
+    // Return transaction result
     console.log(transaction);
+    return transaction;
+  } catch (error) {
+    console.error("Error sending transaction:", error);
+    throw error; // Re-throw error to handle it in React
+  }
 }
-
-main(process.argv[2], process.argv[3])
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });

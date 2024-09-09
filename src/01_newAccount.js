@@ -57,7 +57,7 @@ async function main() {
     const hdRootKey = _getHdRootKey(entropy);
     const accountOneIndex = 0;
     const accountOnePrivateKey = _generatePrivateKey(hdRootKey, accountOneIndex);
-    const accountOnePublicKey = _getPublicKey(accountOnePrivateKey);
+    const accountOnePublicKey = _getPublicKey(accountOnePrivateKey); // example output of type Object: {0:93, 1: 34,...,30: 54, 31: 161}
     const accountOneAddress = _getEthAddress(accountOnePublicKey);
     console.log("Account 1 Wallet Address: ", accountOneAddress);
     // _store(accountOnePrivateKey, accountOnePublicKey, accountOneAddress);
@@ -86,13 +86,6 @@ async function main() {
 
 }
 
-
-// export default function newAccount(){
-//     main().then(() => process.exit(0)).catch((error) => {
-//         console.error(error);
-//         process.exit(1);
-//     });
-// }
 export default async function newAccount(){
     try {
         const result = await main(); // Await the result from main()
