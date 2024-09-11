@@ -1,10 +1,8 @@
-import React, { useState, useEffect } from 'react'; // do we need to import React? What's the use? Can do without?
+import React, { useState, useEffect } from 'react'; // Required for React functional components
+import { WebSocketProvider, formatEther } from 'ethers'; // New: Import ethers' WebSocketProvider and formatEther
 import newAccount from './01_newAccount';
 import restoreWallet from './02_restoreWallet';
 import sendEth from './03_send';
-
-// use ethereum local node
-// const provider = new ethers.providers.Web3Provider(window.ethereum);
 
 function App() {  
   // Password management states
@@ -17,6 +15,7 @@ function App() {
   const [seedPhrase, setSeedPhrase] = useState('');
   // const [privateKey1, setPrivateKey1] = useState(''); // ***** check if we still need this ********
   const [address1, setAddress1] = useState('');
+  const [balance, setBalance] = useState('0'); // New: State for balance
 
   // for restoreWallet()
   const [inputSeedPhrase, setInputSeedPhrase] = useState('');
@@ -24,7 +23,7 @@ function App() {
   // For sendEth
   const [inputReceiverAddress, setInputReceiverAddress] = useState('');
   const [inputEthAmount, setInputEthAmount] = useState('');
-  // For sendEth, to make sure user creates or restore a wallet first
+  // For sendEth, to make sure user creates or restores a wallet first
   const [showPrompt, setShowPrompt] = useState(false);
   
   useEffect(() => {
@@ -43,6 +42,38 @@ function App() {
 
     checkFirstTime();
   }, []);
+
+  useEffect(() => {
+    if (!address1) return;
+
+    // New: Set up Alchemy WebSocket provider
+    const alchemyWsUrl = `wss://eth-sepolia.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`; // New: Use your Alchemy WebSocket URL from .env
+    const wsProvider = new WebSocketProvider(alchemyWsUrl); // New: WebSocket connection to Alchemy
+
+    // New: Function to update balance
+    const updateBalance = async () => {
+      try {
+        const balance = await wsProvider.getBalance(address1, 'latest'); // New: Fetch balance
+        console.log('Balance fetched:', formatEther(balance)); // New: Debug log
+        setBalance(parseFloat(formatEther(balance)).toFixed(2)); // New: Convert balance from wei to ether and format to 2 decimals
+      } catch (error) {
+        console.error('Error fetching balance:', error);
+      }
+    };
+
+    updateBalance(); // New: Initial balance fetch
+
+    // New: Listen for new blocks and update balance
+    wsProvider.on('block', async (blockNumber) => {
+      console.log('New block:', blockNumber); // New: Log block number
+      await updateBalance(); // New: Fetch balance when a new block is mined
+    });
+
+    // Clean up on component unmount
+    return () => {
+      wsProvider.removeAllListeners('block'); // New: Remove listeners when component unmounts
+    };
+  }, [address1]);
 
   // Function to handle setting password
   const handleSetPassword = async () => {
@@ -96,7 +127,7 @@ function App() {
       const response = await newAccount();
       // need to parse JSON as response is of a JSON string
       const parsedData = JSON.parse(response.receivedData);
-      console.log("parsed data is",parsedData)
+      console.log("parsed data is", parsedData);
       setSeedPhrase(parsedData.seedPhrase);
 
       // Convert object to array
@@ -108,7 +139,7 @@ function App() {
       setAddress1(parsedData.address);
       setShowPrompt(false);
     } catch (error) {
-        console.error('handleCreateAccount__Error creating account:', error);
+      console.error('handleCreateAccount__Error creating account:', error);
     }
   };
 
@@ -153,8 +184,7 @@ function App() {
     }
   };
   
-  
-  return(
+  return (
     <div>
       <h1>Smart Contract Wallet</h1>
 
@@ -196,41 +226,39 @@ function App() {
             placeholder="Enter Seed Phrase"
             onChange={(e) => setInputSeedPhrase(e.target.value)}
           />
-          <button className="button" id="restore-wallet" onClick={handleRestoreWallet}>
-            Restore Wallet
-          </button>
+          <button onClick={handleRestoreWallet}>Restore Wallet</button>
 
-          <h3>Send ETH from Created/Restored Account</h3>
+          {seedPhrase && (
+            <div>
+              <h4>Your Seed Phrase:</h4>
+              <p>{seedPhrase}</p>
+            </div>
+          )}
+
+          {address1 && (
+            <div>
+              <h4>Your Wallet Address:</h4>
+              <p>{address1}</p>
+              <h4>ETH Balance:</h4> {/* New: Display balance */}
+              <p>{balance} ETH</p>
+            </div>
+          )}
+
+          <h3>Send ETH</h3>
+          {showPrompt && <p>Please create or restore a wallet before sending ETH.</p>}
           <input
             type="text"
             value={inputReceiverAddress}
-            placeholder="Receiver Address"
+            placeholder="Enter receiver address"
             onChange={(e) => setInputReceiverAddress(e.target.value)}
           />
           <input
             type="text"
             value={inputEthAmount}
-            placeholder="Amount of ETH to send"
+            placeholder="Enter ETH amount"
             onChange={(e) => setInputEthAmount(e.target.value)}
           />
-          <button className="button" id="send-eth" onClick={handleSendEth}>
-            Send ETH
-          </button>
-
-          {seedPhrase && (
-            <div>
-              <h3>Your Seedphrase and Private Key:</h3>
-              <p>Seedphrase: {seedPhrase}</p>
-              <p>Private Key for Account 1: {privateKey}</p>
-              <p>Address for Account 1: {address1}</p>
-            </div>
-          )}
-
-          {showPrompt && (
-            <div style={{ color: 'red', fontWeight: 'bold' }}>
-              <p>Please create or restore a wallet before sending ETH.</p>
-            </div>
-          )}
+          <button onClick={handleSendEth}>Send ETH</button>
         </div>
       )}
     </div>
