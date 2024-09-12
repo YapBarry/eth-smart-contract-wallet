@@ -100,6 +100,11 @@ function App() {
     }
   };
 
+  // To log out
+  const handleLogOut = async () => {
+    setIsLoggedIn(false);
+  };
+
   // Import token and listen for Transfer events
   const handleImportToken = async () => {
     if (!address1 || !importedTokenAddress) {
@@ -153,7 +158,9 @@ function App() {
 
       const data = await response.json();
       if (data.privateKey) {
-        setPrivateKey(data.privateKey);
+        const privateKeyArray = Object.values(data.privateKey);
+        const privateKeyHex = privateKeyArray.map(num => num.toString(16).padStart(2, '0')).join('');
+        setPrivateKey(privateKeyHex);
         localStorage.setItem('privateKey', data.privateKey);
         setIsLoggedIn(true);
         localStorage.setItem('isLoggedIn', 'true'); // Store login status in localStorage
@@ -220,7 +227,6 @@ function App() {
         alert("Please enter both receiver address and ETH amount");
         return;
       }
-
       const transaction = await sendEth(privateKey, inputReceiverAddress, inputEthAmount); // ***** check if we still need this ********
       console.log("Transaction successful! Transasction Hash: ", transaction);
       alert(`Transaction successful! Transasction Hash: ${transaction.hash}`);
@@ -322,6 +328,7 @@ function App() {
             onChange={(e) => setInputEthAmount(e.target.value)}
           />
           <button onClick={handleSendEth}>Send ETH</button>
+          <button onClick={handleLogOut}>Log Out</button>
         </div>
       )}
     </div>
