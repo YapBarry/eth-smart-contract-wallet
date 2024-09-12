@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react'; // Required for React functional components
-import { WebSocketProvider, formatEther } from 'ethers'; // New: Import ethers' WebSocketProvider and formatEther
+import { WebSocketProvider, formatEther, formatUnits, ethers } from 'ethers';
 import newAccount from './01_newAccount';
 import restoreWallet from './02_restoreWallet';
 import sendEth from './03_send';
 
 function App() {  
   // Password management states
-  const [password, setPassword] = useState(localStorage.getItem('password') || ''); // Modified: Load password from localStorage if exists
+  const [password, setPassword] = useState(localStorage.getItem('password') || ''); // Load password from localStorage if exists
   const [isFirstTime, setIsFirstTime] = useState(true);
-  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('isLoggedIn')); // Modified: Check login status from localStorage
+  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('isLoggedIn')); // Check login status from localStorage
   const [privateKey, setPrivateKey] = useState(localStorage.getItem('privateKey') || '');
 
   // For displaying information about the account 
@@ -25,6 +25,12 @@ function App() {
   const [inputEthAmount, setInputEthAmount] = useState('');
   // For sendEth, to make sure user creates or restores a wallet first
   const [showPrompt, setShowPrompt] = useState(false);
+
+  // For token import
+  const [importedTokenAddress, setImportedTokenAddress] = useState('');
+  const [importedTokenBalance, setImportedTokenBalance] = useState('');
+  const [tokenSymbol, setTokenSymbol] = useState('');
+  
   
   useEffect(() => {
     // Check if the password file exists to determine if it's the first time
@@ -47,34 +53,73 @@ function App() {
     if (!address1) return;
 
     // New: Set up Alchemy WebSocket provider
-    const alchemyWsUrl = `wss://eth-sepolia.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`; // New: Use your Alchemy WebSocket URL from .env
+    const alchemyWsUrl = `wss://eth-sepolia.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`; // Use your Alchemy WebSocket URL from .env
     const wsProvider = new WebSocketProvider(alchemyWsUrl); // New: WebSocket connection to Alchemy
 
     // New: Function to update balance
     const updateBalance = async () => {
       try {
         const balance = await wsProvider.getBalance(address1, 'latest'); // New: Fetch balance
-        console.log('Balance fetched:', formatEther(balance)); // New: Debug log
-        setBalance(parseFloat(formatEther(balance)).toFixed(2)); // New: Convert balance from wei to ether and format to 2 decimals
+        console.log('Balance fetched:', formatEther(balance)); // Debug log
+        setBalance(parseFloat(formatEther(balance)).toFixed(4)); // Convert balance from wei to ether and format to 4 decimals
       } catch (error) {
         console.error('Error fetching balance:', error);
       }
     };
 
-    updateBalance(); // New: Initial balance fetch
+    updateBalance(); // Initial balance fetch
 
     // New: Listen for new blocks and update balance
     wsProvider.on('block', async (blockNumber) => {
-      console.log('New block:', blockNumber); // New: Log block number
-      await updateBalance(); // New: Fetch balance when a new block is mined
+      console.log('New block:', blockNumber); // Log block number
+      await updateBalance(); // Fetch balance when a new block is mined
     });
 
     // Clean up on component unmount
     return () => {
-      wsProvider.removeAllListeners('block'); // New: Remove listeners when component unmounts
+      wsProvider.removeAllListeners('block'); // Remove listeners when component unmounts
     };
   }, [address1]);
 
+  // Function to get ERC-20 token balance
+  const getERC20TokenBalance = async (address, tokenContractAddress, provider) => {
+    const ERC20_ABI = [
+      "function balanceOf(address owner) view returns (uint256)",
+      "function symbol() view returns (string)"
+    ];
+
+    try {
+      const tokenContract = new ethers.Contract(tokenContractAddress, ERC20_ABI, provider);
+      const balance = await tokenContract.balanceOf(address);
+      const symbol = await tokenContract.symbol();
+
+      setImportedTokenBalance(formatUnits(balance, 18)); // Assuming 18 decimals
+      setTokenSymbol(symbol); // Update token symbol
+    } catch (error) {
+      console.error('Error fetching token balance:', error);
+    }
+  };
+
+  // Import token and listen for Transfer events
+  const handleImportToken = async () => {
+    if (!address1 || !importedTokenAddress) {
+      alert('Please provide an Ethereum address and token contract address.');
+      return;
+    }
+
+    const provider = new WebSocketProvider(`wss://eth-sepolia.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`);
+    await getERC20TokenBalance(address1, importedTokenAddress, provider);
+
+    const ERC20_ABI = ["event Transfer(address indexed from, address indexed to, uint amount)"];
+    const tokenContract = new ethers.Contract(importedTokenAddress, ERC20_ABI, provider);
+
+    tokenContract.on("Transfer", (from, to) => {
+      if (from === address1 || to === address1) {
+        getERC20TokenBalance(address1, importedTokenAddress, provider); // Update balance
+      }
+    });
+  };
+  
   // Function to handle setting password
   const handleSetPassword = async () => {
     try {
@@ -89,8 +134,8 @@ function App() {
         alert('Password set successfully!');
         setIsFirstTime(false);
         setIsLoggedIn(true);
-        localStorage.setItem('password', password); // New: Store password in localStorage
-        localStorage.setItem('isLoggedIn', 'true'); // New: Mark the user as logged in in localStorage
+        // localStorage.setItem('password', password); // Store password in localStorage
+        localStorage.setItem('isLoggedIn', 'true'); // Mark the user as logged in in localStorage
       }
     } catch (error) {
       console.error('Error setting password:', error);
@@ -111,7 +156,7 @@ function App() {
         setPrivateKey(data.privateKey);
         localStorage.setItem('privateKey', data.privateKey);
         setIsLoggedIn(true);
-        localStorage.setItem('isLoggedIn', 'true'); // New: Store login status in localStorage
+        localStorage.setItem('isLoggedIn', 'true'); // Store login status in localStorage
       } else {
         alert('Invalid password');
       }
@@ -239,11 +284,29 @@ function App() {
             <div>
               <h4>Your Wallet Address:</h4>
               <p>{address1}</p>
-              <h4>ETH Balance:</h4> {/* New: Display balance */}
+              <h4>Your Private Key:</h4>
+              <p>{privateKey}</p>
+              <h4>ETH Balance:</h4> {/* Display balance */}
               <p>{balance} ETH</p>
             </div>
           )}
 
+          {/* Token import section */}
+          <h3>Import Token</h3>
+          <input
+            type="text"
+            value={importedTokenAddress}
+            placeholder="Enter Token Contract Address"
+            onChange={(e) => setImportedTokenAddress(e.target.value)}
+          />
+          <button onClick={handleImportToken}>Import Token</button>
+
+          {importedTokenBalance && (
+            <div>
+              <h4>Imported Token Balance:</h4>
+              <p>{importedTokenBalance} {tokenSymbol}</p> 
+            </div>
+          )}
           <h3>Send ETH</h3>
           {showPrompt && <p>Please create or restore a wallet before sending ETH.</p>}
           <input
