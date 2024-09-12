@@ -14,7 +14,7 @@ function App() {
   // For displaying information about the account 
   const [seedPhrase, setSeedPhrase] = useState('');
   // const [privateKey1, setPrivateKey1] = useState(''); // ***** check if we still need this ********
-  const [address1, setAddress1] = useState('');
+  const [address1, setAddress1] = useState(''); // do we need local storage for this?
   const [balance, setBalance] = useState('0'); // New: State for balance
 
   // for restoreWallet()
@@ -107,6 +107,7 @@ function App() {
 
   // Import token and listen for Transfer events
   const handleImportToken = async () => {
+    console.log("address1 is...",address1);
     if (!address1 || !importedTokenAddress) {
       alert('Please provide an Ethereum address and token contract address.');
       return;
@@ -158,9 +159,11 @@ function App() {
 
       const data = await response.json();
       if (data.privateKey) {
+        console.log("data is...",data);
         const privateKeyArray = Object.values(data.privateKey);
         const privateKeyHex = privateKeyArray.map(num => num.toString(16).padStart(2, '0')).join('');
         setPrivateKey(privateKeyHex);
+        setAddress1(data.address1);
         localStorage.setItem('privateKey', data.privateKey);
         setIsLoggedIn(true);
         localStorage.setItem('isLoggedIn', 'true'); // Store login status in localStorage
