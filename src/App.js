@@ -27,6 +27,7 @@ function App() {
   const [showPrompt, setShowPrompt] = useState(false);
 
   // For token import
+  const [importedERC20TokenList, setImportedERC20TokenList] = useState([]); // empty list of objects. 1 token = 1 object
   const [importedTokenAddress, setImportedTokenAddress] = useState('');
   const [importedTokenBalance, setImportedTokenBalance] = useState('');
   const [tokenSymbol, setTokenSymbol] = useState('');
@@ -67,6 +68,7 @@ function App() {
       }
     };
 
+
     updateBalance(); // Initial balance fetch
 
     // New: Listen for new blocks and update balance
@@ -93,6 +95,8 @@ function App() {
       const balance = await tokenContract.balanceOf(address);
       const symbol = await tokenContract.symbol();
 
+      const balanceFormatted = formatUnits(balance, 18)
+      setImportedERC20TokenList(prevList => [...prevList, {"tokenSymbol": symbol, "tokenContractAddress": tokenContractAddress, "tokenBalance": balanceFormatted}]);
       setImportedTokenBalance(formatUnits(balance, 18)); // Assuming 18 decimals
       setTokenSymbol(symbol); // Update token symbol
     } catch (error) {
@@ -309,7 +313,18 @@ function App() {
             onChange={(e) => setImportedTokenAddress(e.target.value)}
           />
           <button onClick={handleImportToken}>Import Token</button>
-
+          {importedERC20TokenList && (
+            <div>
+              <h4>importedERC20TokenList:</h4>
+              {importedERC20TokenList.map(({tokenSymbol, tokenContractAddress, tokenBalance}) => (
+                <div>
+                  <p>Token: {tokenSymbol} </p>
+                  <p>Address: {tokenContractAddress}</p>
+                  <p>Balance: {tokenBalance}</p>                    
+                </div>
+              ))}
+            </div>
+          )}
           {importedTokenBalance && (
             <div>
               <h4>Imported Token Balance:</h4>
