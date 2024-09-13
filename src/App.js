@@ -14,7 +14,7 @@ function App() {
   // For displaying information about the account 
   const [seedPhrase, setSeedPhrase] = useState('');
   // const [privateKey1, setPrivateKey1] = useState(''); // ***** check if we still need this ********
-  const [address1, setAddress1] = useState(''); // do we need local storage for this?
+  const [address1, setAddress1] = useState(''); // login, createAccount, restoreAccount will change this
   const [balance, setBalance] = useState('0'); // New: State for balance
 
   // for restoreWallet()
@@ -27,7 +27,7 @@ function App() {
   const [showPrompt, setShowPrompt] = useState(false);
 
   // For token import
-  const [importedERC20TokenList, setImportedERC20TokenList] = useState([]); // empty list of objects. 1 token = 1 object
+  const [importedERC20TokenList, setImportedERC20TokenList] = useState(localStorage.getItem('importedERC20TokenList') || []);
   const [importedTokenAddress, setImportedTokenAddress] = useState('');
   const [importedTokenBalance, setImportedTokenBalance] = useState('');
   const [tokenSymbol, setTokenSymbol] = useState('');
@@ -96,7 +96,12 @@ function App() {
       const symbol = await tokenContract.symbol();
 
       const balanceFormatted = formatUnits(balance, 18)
-      setImportedERC20TokenList(prevList => [...prevList, {"tokenSymbol": symbol, "tokenContractAddress": tokenContractAddress, "tokenBalance": balanceFormatted}]);
+      // const updatedImportedERC20TokenList = [...importedERC20List, {"tokenSymbol": symbol, "tokenContractAddress": tokenContractAddress, "tokenBalance": balanceFormatted}]
+      console.log("in getERC20TokenBalance - importedERC20TokenList is: ", importedERC20TokenList);
+      
+      setImportedERC20TokenList([...importedERC20TokenList, {"tokenSymbol": symbol, "tokenContractAddress": tokenContractAddress, "tokenBalance": balanceFormatted}]);
+      localStorage.setItem('importedERC20TokenList', [...importedERC20TokenList, {"tokenSymbol": symbol, "tokenContractAddress": tokenContractAddress, "tokenBalance": balanceFormatted}]); // Mark the user as logged in in localStorage
+      
       setImportedTokenBalance(formatUnits(balance, 18)); // Assuming 18 decimals
       setTokenSymbol(symbol); // Update token symbol
     } catch (error) {
@@ -171,6 +176,11 @@ function App() {
         localStorage.setItem('privateKey', data.privateKey);
         setIsLoggedIn(true);
         localStorage.setItem('isLoggedIn', 'true'); // Store login status in localStorage
+        console.log("in handleLogin - importedERC20TokenList is: ", importedERC20TokenList);
+        
+        setImportedERC20TokenList(localStorage.getItem('importedERC20TokenList') || []); // import existing list stored in local storage. If not, it clears the list
+        localStorage.setItem('importedERC20TokenList', importedERC20TokenList);
+
       } else {
         alert('Invalid password');
       }
@@ -196,6 +206,12 @@ function App() {
       localStorage.setItem('privateKey', privateKeyHex);
 
       setAddress1(parsedData.address);
+      console.log("TESTTTTTT IMPORTEDERC20TOKENLIST IS......",localStorage.getItem('importedERC20TokenList'));
+      console.log("in handleCreateAccount - importedERC20TokenList is: ", importedERC20TokenList);
+
+      setImportedERC20TokenList([]); // Clears the list since new account
+      localStorage.setItem('importedERC20TokenList', importedERC20TokenList);
+
       setShowPrompt(false);
     } catch (error) {
       console.error('handleCreateAccount__Error creating account:', error);
@@ -216,6 +232,11 @@ function App() {
       localStorage.setItem('privateKey', privateKeyHex);
 
       setAddress1(parsedData.address);
+      
+      console.log("in handleRestoreWallet - importedERC20TokenList is: ", importedERC20TokenList);
+      setImportedERC20TokenList(localStorage.getItem('importedERC20TokenList') || []); // import existing list stored in local storage. If not, it clears the list
+      localStorage.setItem('importedERC20TokenList', importedERC20TokenList);
+      
       setShowPrompt(false);
     } catch (error) {
       console.error('handleRestoredWallet__Error restoring wallet:', error);
@@ -313,9 +334,9 @@ function App() {
             onChange={(e) => setImportedTokenAddress(e.target.value)}
           />
           <button onClick={handleImportToken}>Import Token</button>
-          {importedERC20TokenList && (
+          {Array.isArray(importedERC20TokenList) && importedERC20TokenList.length > 0 && (
             <div>
-              <h4>importedERC20TokenList:</h4>
+              <h4>Imported ERC20 Tokens:</h4>
               {importedERC20TokenList.map(({tokenSymbol, tokenContractAddress, tokenBalance}) => (
                 <div>
                   <p>Token: {tokenSymbol} </p>
