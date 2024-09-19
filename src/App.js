@@ -27,7 +27,7 @@ function App() {
   const [showPrompt, setShowPrompt] = useState(false);
 
   // For token import
-  const [importedERC20TokenList, setImportedERC20TokenList] = useState(localStorage.getItem('importedERC20TokenList') || []);
+  const [importedERC20TokenList, setImportedERC20TokenList] = useState([]); // setting of address will trigger the setting of importedERC20TokenList instead
   const [importedTokenAddress, setImportedTokenAddress] = useState('');
   const [importedTokenBalance, setImportedTokenBalance] = useState('');
   const [tokenSymbol, setTokenSymbol] = useState('');
@@ -68,7 +68,6 @@ function App() {
       }
     };
 
-
     updateBalance(); // Initial balance fetch
 
     // New: Listen for new blocks and update balance
@@ -84,7 +83,7 @@ function App() {
   }, [address1]);
 
   // Function to get ERC-20 token balance
-  const getERC20TokenBalance = async (address, tokenContractAddress, provider) => {
+  const getERC20TokenBalance = async (walletAddress, tokenContractAddress, provider) => {
     const ERC20_ABI = [
       "function balanceOf(address owner) view returns (uint256)",
       "function symbol() view returns (string)"
@@ -92,17 +91,14 @@ function App() {
 
     try {
       const tokenContract = new ethers.Contract(tokenContractAddress, ERC20_ABI, provider);
-      const balance = await tokenContract.balanceOf(address);
+      const balance = await tokenContract.balanceOf(walletAddress);
       const symbol = await tokenContract.symbol();
-
       const balanceFormatted = formatUnits(balance, 18)
-      // const updatedImportedERC20TokenList = [...importedERC20List, {"tokenSymbol": symbol, "tokenContractAddress": tokenContractAddress, "tokenBalance": balanceFormatted}]
-      console.log("in getERC20TokenBalance - importedERC20TokenList is: ", importedERC20TokenList);
       
-      setImportedERC20TokenList([...importedERC20TokenList, {"tokenSymbol": symbol, "tokenContractAddress": tokenContractAddress, "tokenBalance": balanceFormatted}]);
-      localStorage.setItem('importedERC20TokenList', [...importedERC20TokenList, {"tokenSymbol": symbol, "tokenContractAddress": tokenContractAddress, "tokenBalance": balanceFormatted}]); // Mark the user as logged in in localStorage
-      
-      setImportedTokenBalance(formatUnits(balance, 18)); // Assuming 18 decimals
+      // UPDATE HERE FOR LIST OF IMPORTED TOKENS TO SET FOR LOCAL STORAGE / setImportedERC20TokenList ////
+
+      setImportedERC20TokenList({walletAddress: {tokenSymbol: symbol, tokenContractAddress: tokenContractAddress, tokenBalance: balanceFormatted}}); 
+      setImportedTokenBalance(balanceFormatted); // Assuming 18 decimals
       setTokenSymbol(symbol); // Update token symbol
     } catch (error) {
       console.error('Error fetching token balance:', error);
@@ -122,8 +118,14 @@ function App() {
       return;
     }
 
+    console.log("importedERC20TokenList before appending is", importedERC20TokenList);
+    importedERC20TokenList.push(importedTokenAddress);
+    console.log("importedERC20TokenList after appending is", importedERC20TokenList);
+    localStorage.setItem(address1, importedERC20TokenList)
+    
     const provider = new WebSocketProvider(`wss://eth-sepolia.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`);
     await getERC20TokenBalance(address1, importedTokenAddress, provider);
+    
 
     const ERC20_ABI = ["event Transfer(address indexed from, address indexed to, uint amount)"];
     const tokenContract = new ethers.Contract(importedTokenAddress, ERC20_ABI, provider);
@@ -171,15 +173,22 @@ function App() {
         console.log("data is...",data);
         const privateKeyArray = Object.values(data.privateKey);
         const privateKeyHex = privateKeyArray.map(num => num.toString(16).padStart(2, '0')).join('');
-        setPrivateKey(privateKeyHex);
-        setAddress1(data.address1);
-        localStorage.setItem('privateKey', data.privateKey);
-        setIsLoggedIn(true);
-        localStorage.setItem('isLoggedIn', 'true'); // Store login status in localStorage
-        console.log("in handleLogin - importedERC20TokenList is: ", importedERC20TokenList);
         
-        setImportedERC20TokenList(localStorage.getItem('importedERC20TokenList') || []); // import existing list stored in local storage. If not, it clears the list
-        localStorage.setItem('importedERC20TokenList', importedERC20TokenList);
+        console.log(1)
+        setPrivateKey(privateKeyHex);
+        console.log(2)
+        setAddress1(data.address1);
+        console.log(3)
+        console.log(localStorage.getItem(address1))
+        setImportedERC20TokenList(JSON.parse(localStorage.getItem(address1))  || {});
+        console.log(4)
+        setIsLoggedIn(true);
+        console.log(5)
+        
+        localStorage.setItem('privateKey', data.privateKey);
+        localStorage.setItem('isLoggedIn', 'true'); // Store login status in localStorage
+        
+        //// UPDATE HERE FOR LIST OF IMPORTED TOKENS TO SET FOR LOCAL STORAGE / setImportedERC20TokenList ////
 
       } else {
         alert('Invalid password');
@@ -202,15 +211,12 @@ function App() {
       // Convert object to array
       const privateKeyArray = Object.values(parsedData.privateKey);
       const privateKeyHex = privateKeyArray.map(num => num.toString(16).padStart(2, '0')).join('');
+      
       setPrivateKey(privateKeyHex); // ***** check if we still need this ********
-      localStorage.setItem('privateKey', privateKeyHex);
-
       setAddress1(parsedData.address);
-      console.log("TESTTTTTT IMPORTEDERC20TOKENLIST IS......",localStorage.getItem('importedERC20TokenList'));
-      console.log("in handleCreateAccount - importedERC20TokenList is: ", importedERC20TokenList);
-
       setImportedERC20TokenList([]); // Clears the list since new account
-      localStorage.setItem('importedERC20TokenList', importedERC20TokenList);
+      
+      localStorage.setItem('privateKey', privateKeyHex);
 
       setShowPrompt(false);
     } catch (error) {
@@ -228,14 +234,14 @@ function App() {
 
       const privateKeyArray = Object.values(parsedData.privateKey);
       const privateKeyHex = privateKeyArray.map(num => num.toString(16).padStart(2, '0')).join('');
-      setPrivateKey(privateKeyHex); // ***** check if we still need this ********
-      localStorage.setItem('privateKey', privateKeyHex);
-
-      setAddress1(parsedData.address);
       
-      console.log("in handleRestoreWallet - importedERC20TokenList is: ", importedERC20TokenList);
-      setImportedERC20TokenList(localStorage.getItem('importedERC20TokenList') || []); // import existing list stored in local storage. If not, it clears the list
-      localStorage.setItem('importedERC20TokenList', importedERC20TokenList);
+      setPrivateKey(privateKeyHex); // ***** check if we still need this ********     
+      setAddress1(parsedData.address);
+      console.log("before setting importedERC20TokenList in handleRestoreWallet: ", importedERC20TokenList)
+      setImportedERC20TokenList(JSON.parse(localStorage.getItem(address1))  || []);
+      
+      localStorage.setItem('privateKey', privateKeyHex);
+      //// UPDATE HERE FOR LIST OF IMPORTED TOKENS TO SET FOR LOCAL STORAGE / setImportedERC20TokenList ////
       
       setShowPrompt(false);
     } catch (error) {
