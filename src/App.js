@@ -1,40 +1,36 @@
-import React, { useState, useEffect } from 'react'; // Required for React functional components
+import React, { useState, useEffect } from 'react';
 import { WebSocketProvider, formatEther, formatUnits, ethers } from 'ethers';
 import newAccount from './01_newAccount';
 import restoreWallet from './02_restoreWallet';
 import sendEth from './03_send';
 
 function App() {  
-  // Password management states
-  const [password, setPassword] = useState(localStorage.getItem('password') || ''); // Load password from localStorage if exists
+  const [password, setPassword] = useState(localStorage.getItem('password') || '');
   const [isFirstTime, setIsFirstTime] = useState(true);
-  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('isLoggedIn')); // Check login status from localStorage
+  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('isLoggedIn'));
   const [privateKey, setPrivateKey] = useState(localStorage.getItem('privateKey') || '');
-
-  // For displaying information about the account 
   const [seedPhrase, setSeedPhrase] = useState('');
-  // const [privateKey1, setPrivateKey1] = useState(''); // ***** check if we still need this ********
-  const [address1, setAddress1] = useState(''); // login, createAccount, restoreAccount will change this
-  const [balance, setBalance] = useState('0'); // New: State for balance
-
-  // for restoreWallet()
+  const [address1, setAddress1] = useState('');
+  const [balance, setBalance] = useState('0');
   const [inputSeedPhrase, setInputSeedPhrase] = useState('');
-  
-  // For sendEth
   const [inputReceiverAddress, setInputReceiverAddress] = useState('');
   const [inputEthAmount, setInputEthAmount] = useState('');
-  // For sendEth, to make sure user creates or restores a wallet first
   const [showPrompt, setShowPrompt] = useState(false);
-
-  // For token import
-  const [importedERC20TokenList, setImportedERC20TokenList] = useState([]); // setting of address will trigger the setting of importedERC20TokenList instead
+  const [importedERC20TokenList, setImportedERC20TokenList] = useState([]);
   const [importedTokenAddress, setImportedTokenAddress] = useState('');
   const [importedTokenBalance, setImportedTokenBalance] = useState('');
   const [tokenSymbol, setTokenSymbol] = useState('');
-  
-  
+
+  // Update local storage whenever importedERC20TokenList changes
   useEffect(() => {
-    // Check if the password file exists to determine if it's the first time
+    if (address1) {
+      const savedERC20TokenList = JSON.parse(localStorage.getItem('importedERC20TokenList') || '{}');
+      savedERC20TokenList[address1] = importedERC20TokenList;
+      localStorage.setItem('importedERC20TokenList', JSON.stringify(savedERC20TokenList));
+    }
+  }, [importedERC20TokenList, address1]);
+
+  useEffect(() => {
     const checkFirstTime = async () => {
       try {
         const response = await fetch('http://localhost:3001/check-password');
@@ -53,36 +49,31 @@ function App() {
   useEffect(() => {
     if (!address1) return;
 
-    // New: Set up Alchemy WebSocket provider
-    const alchemyWsUrl = `wss://eth-sepolia.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`; // Use your Alchemy WebSocket URL from .env
-    const wsProvider = new WebSocketProvider(alchemyWsUrl); // New: WebSocket connection to Alchemy
+    const alchemyWsUrl = `wss://eth-sepolia.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`;
+    const wsProvider = new WebSocketProvider(alchemyWsUrl);
 
-    // New: Function to update balance
     const updateBalance = async () => {
       try {
-        const balance = await wsProvider.getBalance(address1, 'latest'); // New: Fetch balance
-        console.log('Balance fetched:', formatEther(balance)); // Debug log
-        setBalance(parseFloat(formatEther(balance)).toFixed(4)); // Convert balance from wei to ether and format to 4 decimals
+        const balance = await wsProvider.getBalance(address1, 'latest');
+        console.log('Balance fetched:', formatEther(balance));
+        setBalance(parseFloat(formatEther(balance)).toFixed(4));
       } catch (error) {
         console.error('Error fetching balance:', error);
       }
     };
 
-    updateBalance(); // Initial balance fetch
+    updateBalance();
 
-    // New: Listen for new blocks and update balance
     wsProvider.on('block', async (blockNumber) => {
-      console.log('New block:', blockNumber); // Log block number
-      await updateBalance(); // Fetch balance when a new block is mined
+      console.log('New block:', blockNumber);
+      await updateBalance();
     });
 
-    // Clean up on component unmount
     return () => {
-      wsProvider.removeAllListeners('block'); // Remove listeners when component unmounts
+      wsProvider.removeAllListeners('block');
     };
   }, [address1]);
 
-  // Function to get ERC-20 token balance
   const getERC20TokenBalance = async (walletAddress, tokenContractAddress, provider) => {
     const ERC20_ABI = [
       "function balanceOf(address owner) view returns (uint256)",
@@ -93,51 +84,46 @@ function App() {
       const tokenContract = new ethers.Contract(tokenContractAddress, ERC20_ABI, provider);
       const balance = await tokenContract.balanceOf(walletAddress);
       const symbol = await tokenContract.symbol();
-      const balanceFormatted = formatUnits(balance, 18)
-      
-      // UPDATE HERE FOR LIST OF IMPORTED TOKENS TO SET FOR LOCAL STORAGE / setImportedERC20TokenList ////
+      const balanceFormatted = formatUnits(balance, 18);
 
-      setImportedERC20TokenList({walletAddress: {tokenSymbol: symbol, tokenContractAddress: tokenContractAddress, tokenBalance: balanceFormatted}}); 
-      setImportedTokenBalance(balanceFormatted); // Assuming 18 decimals
-      setTokenSymbol(symbol); // Update token symbol
+      setImportedERC20TokenList(prevList => [
+        ...prevList,
+        { tokenSymbol: symbol, tokenContractAddress: tokenContractAddress }
+      ]);
+
+      setImportedTokenBalance(balanceFormatted);
+      setTokenSymbol(symbol);
     } catch (error) {
       console.error('Error fetching token balance:', error);
     }
   };
 
-  // To log out
   const handleLogOut = async () => {
     setIsLoggedIn(false);
   };
 
-  // Import token and listen for Transfer events
   const handleImportToken = async () => {
-    console.log("address1 is...",address1);
+    console.log("address1 is...", address1);
     if (!address1 || !importedTokenAddress) {
       alert('Please provide an Ethereum address and token contract address.');
       return;
     }
 
     console.log("importedERC20TokenList before appending is", importedERC20TokenList);
-    importedERC20TokenList.push(importedTokenAddress);
-    console.log("importedERC20TokenList after appending is", importedERC20TokenList);
-    localStorage.setItem(address1, importedERC20TokenList)
-    
+
     const provider = new WebSocketProvider(`wss://eth-sepolia.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`);
     await getERC20TokenBalance(address1, importedTokenAddress, provider);
-    
 
     const ERC20_ABI = ["event Transfer(address indexed from, address indexed to, uint amount)"];
     const tokenContract = new ethers.Contract(importedTokenAddress, ERC20_ABI, provider);
 
     tokenContract.on("Transfer", (from, to) => {
       if (from === address1 || to === address1) {
-        getERC20TokenBalance(address1, importedTokenAddress, provider); // Update balance
+        getERC20TokenBalance(address1, importedTokenAddress, provider);
       }
     });
   };
-  
-  // Function to handle setting password
+
   const handleSetPassword = async () => {
     try {
       const response = await fetch('http://localhost:3001/set-password', {
@@ -151,15 +137,13 @@ function App() {
         alert('Password set successfully!');
         setIsFirstTime(false);
         setIsLoggedIn(true);
-        // localStorage.setItem('password', password); // Store password in localStorage
-        localStorage.setItem('isLoggedIn', 'true'); // Mark the user as logged in in localStorage
+        localStorage.setItem('isLoggedIn', 'true');
       }
     } catch (error) {
       console.error('Error setting password:', error);
     }
   };
 
-  // Function to handle login
   const handleLogin = async () => {
     try {
       const response = await fetch('http://localhost:3001/login', {
@@ -170,26 +154,19 @@ function App() {
 
       const data = await response.json();
       if (data.privateKey) {
-        console.log("data is...",data);
+        console.log("data is...", data);
         const privateKeyArray = Object.values(data.privateKey);
         const privateKeyHex = privateKeyArray.map(num => num.toString(16).padStart(2, '0')).join('');
-        
-        console.log(1)
-        setPrivateKey(privateKeyHex);
-        console.log(2)
-        setAddress1(data.address1);
-        console.log(3)
-        console.log(localStorage.getItem(address1))
-        setImportedERC20TokenList(JSON.parse(localStorage.getItem(address1))  || {});
-        console.log(4)
-        setIsLoggedIn(true);
-        console.log(5)
-        
-        localStorage.setItem('privateKey', data.privateKey);
-        localStorage.setItem('isLoggedIn', 'true'); // Store login status in localStorage
-        
-        //// UPDATE HERE FOR LIST OF IMPORTED TOKENS TO SET FOR LOCAL STORAGE / setImportedERC20TokenList ////
 
+        setPrivateKey(privateKeyHex);
+        setAddress1(data.address1);
+        const savedERC20TokenList = localStorage.getItem('importedERC20TokenList') || '{}';
+        const parsedSavedERC20TokenList = JSON.parse(savedERC20TokenList);
+        setImportedERC20TokenList(parsedSavedERC20TokenList[data.address1] || []);
+        setIsLoggedIn(true);
+
+        localStorage.setItem('privateKey', data.privateKey);
+        localStorage.setItem('isLoggedIn', 'true');
       } else {
         alert('Invalid password');
       }
@@ -198,24 +175,19 @@ function App() {
     }
   };
 
-  // Function to handle account creation and updating seed phrase
   const handleCreateAccount = async () => {
     try {
-      // Call the newAccount function to create a new account
       const response = await newAccount();
-      // need to parse JSON as response is of a JSON string
       const parsedData = JSON.parse(response.receivedData);
-      console.log("parsed data is", parsedData);
       setSeedPhrase(parsedData.seedPhrase);
 
-      // Convert object to array
       const privateKeyArray = Object.values(parsedData.privateKey);
       const privateKeyHex = privateKeyArray.map(num => num.toString(16).padStart(2, '0')).join('');
-      
-      setPrivateKey(privateKeyHex); // ***** check if we still need this ********
+
+      setPrivateKey(privateKeyHex);
       setAddress1(parsedData.address);
-      setImportedERC20TokenList([]); // Clears the list since new account
-      
+      setImportedERC20TokenList([]);
+
       localStorage.setItem('privateKey', privateKeyHex);
 
       setShowPrompt(false);
@@ -224,51 +196,47 @@ function App() {
     }
   };
 
-  // Function to handle restored wallet using input seed phrase
   const handleRestoreWallet = async () => {
     try {
-      const response = await restoreWallet(inputSeedPhrase); // Pass the input seed phrase to restoreWallet
+      const response = await restoreWallet(inputSeedPhrase);
       const parsedData = JSON.parse(response.receivedData);
-      console.log("Restored wallet data:", parsedData);
       setSeedPhrase(parsedData.seedPhrase);
 
       const privateKeyArray = Object.values(parsedData.privateKey);
       const privateKeyHex = privateKeyArray.map(num => num.toString(16).padStart(2, '0')).join('');
-      
-      setPrivateKey(privateKeyHex); // ***** check if we still need this ********     
+
+      setPrivateKey(privateKeyHex);
       setAddress1(parsedData.address);
-      console.log("before setting importedERC20TokenList in handleRestoreWallet: ", importedERC20TokenList)
-      setImportedERC20TokenList(JSON.parse(localStorage.getItem(address1))  || []);
-      
+      const savedERC20TokenList = localStorage.getItem('importedERC20TokenList') || '{}';
+      const parsedSavedERC20TokenList = JSON.parse(savedERC20TokenList);
+      setImportedERC20TokenList(parsedSavedERC20TokenList[parsedData.address] || []);
+
       localStorage.setItem('privateKey', privateKeyHex);
-      //// UPDATE HERE FOR LIST OF IMPORTED TOKENS TO SET FOR LOCAL STORAGE / setImportedERC20TokenList ////
-      
+
       setShowPrompt(false);
     } catch (error) {
       console.error('handleRestoredWallet__Error restoring wallet:', error);
     }
   };
 
-  // Function to handle sending ETH
   const handleSendEth = async () => {
-    if (!privateKey) { // ***** check if we still need this ********
+    if (!privateKey) {
       setShowPrompt(true);
       return;
-    }    
+    }
     try {
-      // Ensure receiver address and eth amount are provided
       if (!inputReceiverAddress || !inputEthAmount) {
         alert("Please enter both receiver address and ETH amount");
         return;
       }
-      const transaction = await sendEth(privateKey, inputReceiverAddress, inputEthAmount); // ***** check if we still need this ********
-      console.log("Transaction successful! Transasction Hash: ", transaction);
-      alert(`Transaction successful! Transasction Hash: ${transaction.hash}`);
+      const transaction = await sendEth(privateKey, inputReceiverAddress, inputEthAmount);
+      console.log("Transaction successful! Transaction Hash: ", transaction);
+      alert(`Transaction successful! Transaction Hash: ${transaction.hash}`);
     } catch (error) {
       console.error('Error sending ETH:', error);
     }
   };
-  
+
   return (
     <div>
       <h1>Smart Contract Wallet</h1>
@@ -321,17 +289,16 @@ function App() {
           )}
 
           {address1 && (
-            <div>
+            <div key="123">
               <h4>Your Wallet Address:</h4>
               <p>{address1}</p>
               <h4>Your Private Key:</h4>
               <p>{privateKey}</p>
-              <h4>ETH Balance:</h4> {/* Display balance */}
+              <h4>ETH Balance:</h4>
               <p>{balance} ETH</p>
             </div>
           )}
 
-          {/* Token import section */}
           <h3>Import Token</h3>
           <input
             type="text"
@@ -343,11 +310,10 @@ function App() {
           {Array.isArray(importedERC20TokenList) && importedERC20TokenList.length > 0 && (
             <div>
               <h4>Imported ERC20 Tokens:</h4>
-              {importedERC20TokenList.map(({tokenSymbol, tokenContractAddress, tokenBalance}) => (
-                <div>
+              {importedERC20TokenList.map(({ tokenSymbol, tokenContractAddress }) => (
+                <div key={tokenContractAddress}>
                   <p>Token: {tokenSymbol} </p>
                   <p>Address: {tokenContractAddress}</p>
-                  <p>Balance: {tokenBalance}</p>                    
                 </div>
               ))}
             </div>
@@ -355,7 +321,7 @@ function App() {
           {importedTokenBalance && (
             <div>
               <h4>Imported Token Balance:</h4>
-              <p>{importedTokenBalance} {tokenSymbol}</p> 
+              <p>{importedTokenBalance} {tokenSymbol}</p>
             </div>
           )}
           <h3>Send ETH</h3>
