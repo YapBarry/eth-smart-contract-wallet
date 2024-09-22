@@ -10,13 +10,16 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('isLoggedIn'));
   const [privateKey, setPrivateKey] = useState(localStorage.getItem('privateKey') || '');
   const [seedPhrase, setSeedPhrase] = useState('');
-  const [address1, setAddress1] = useState('');
+  const [address1, setAddress1] = useState(localStorage.getItem('address1') || '');
   const [balance, setBalance] = useState('0');
   const [inputSeedPhrase, setInputSeedPhrase] = useState('');
   const [inputReceiverAddress, setInputReceiverAddress] = useState('');
   const [inputEthAmount, setInputEthAmount] = useState('');
   const [showPrompt, setShowPrompt] = useState(false);
-  const [importedERC20TokenList, setImportedERC20TokenList] = useState([]);
+  const [importedERC20TokenList, setImportedERC20TokenList] = useState(() => {
+    const savedERC20TokenList = JSON.parse(localStorage.getItem('importedERC20TokenList') || '{}');
+    return savedERC20TokenList[localStorage.getItem('address1')] || [];
+  });
   const [importedTokenAddress, setImportedTokenAddress] = useState('');
 
   // Update local storage whenever importedERC20TokenList changes
@@ -65,11 +68,23 @@ function App() {
     wsProvider.on('block', async (blockNumber) => {
       console.log('New block:', blockNumber);
       await updateBalance();
+      importedERC20TokenList.forEach(token => {
+        getERC20TokenBalance(address1, token.tokenContractAddress, wsProvider);
+      });
     });
 
     return () => {
       wsProvider.removeAllListeners('block');
     };
+  }, [address1, importedERC20TokenList]);
+
+  useEffect(() => {
+    if (address1) {
+      const provider = new WebSocketProvider(`wss://eth-sepolia.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`);
+      importedERC20TokenList.forEach(token => {
+        getERC20TokenBalance(address1, token.tokenContractAddress, provider);
+      });
+    }
   }, [address1]);
 
   const getERC20TokenBalance = async (walletAddress, tokenContractAddress, provider) => {
@@ -85,7 +100,7 @@ function App() {
       const balanceFormatted = formatUnits(balance, 18);
 
       setImportedERC20TokenList(prevList => [
-        ...prevList,
+        ...prevList.filter(token => token.tokenContractAddress !== tokenContractAddress),
         { tokenSymbol: symbol, tokenContractAddress: tokenContractAddress, balance: balanceFormatted }
       ]);
 
@@ -161,7 +176,8 @@ function App() {
         setImportedERC20TokenList(parsedSavedERC20TokenList[data.address1] || []);
         setIsLoggedIn(true);
 
-        localStorage.setItem('privateKey', data.privateKey);
+        localStorage.setItem('privateKey', privateKeyHex);
+        localStorage.setItem('address1', data.address1);
         localStorage.setItem('isLoggedIn', 'true');
       } else {
         alert('Invalid password');
@@ -185,6 +201,7 @@ function App() {
       setImportedERC20TokenList([]);
 
       localStorage.setItem('privateKey', privateKeyHex);
+      localStorage.setItem('address1', parsedData.address);
 
       setShowPrompt(false);
     } catch (error) {
@@ -208,6 +225,7 @@ function App() {
       setImportedERC20TokenList(parsedSavedERC20TokenList[parsedData.address] || []);
 
       localStorage.setItem('privateKey', privateKeyHex);
+      localStorage.setItem('address1', parsedData.address);
 
       setShowPrompt(false);
     } catch (error) {
