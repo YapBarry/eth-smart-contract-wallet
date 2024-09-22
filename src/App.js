@@ -18,8 +18,6 @@ function App() {
   const [showPrompt, setShowPrompt] = useState(false);
   const [importedERC20TokenList, setImportedERC20TokenList] = useState([]);
   const [importedTokenAddress, setImportedTokenAddress] = useState('');
-  const [importedTokenBalance, setImportedTokenBalance] = useState('');
-  const [tokenSymbol, setTokenSymbol] = useState('');
 
   // Update local storage whenever importedERC20TokenList changes
   useEffect(() => {
@@ -88,11 +86,9 @@ function App() {
 
       setImportedERC20TokenList(prevList => [
         ...prevList,
-        { tokenSymbol: symbol, tokenContractAddress: tokenContractAddress }
+        { tokenSymbol: symbol, tokenContractAddress: tokenContractAddress, balance: balanceFormatted }
       ]);
 
-      setImportedTokenBalance(balanceFormatted);
-      setTokenSymbol(symbol);
     } catch (error) {
       console.error('Error fetching token balance:', error);
     }
@@ -310,18 +306,13 @@ function App() {
           {Array.isArray(importedERC20TokenList) && importedERC20TokenList.length > 0 && (
             <div>
               <h4>Imported ERC20 Tokens:</h4>
-              {importedERC20TokenList.map(({ tokenSymbol, tokenContractAddress }) => (
+              {importedERC20TokenList.map(({ tokenSymbol, tokenContractAddress , balance}) => (
                 <div key={tokenContractAddress}>
                   <p>Token: {tokenSymbol} </p>
                   <p>Address: {tokenContractAddress}</p>
+                  <p>Balance: {balance}</p>
                 </div>
               ))}
-            </div>
-          )}
-          {importedTokenBalance && (
-            <div>
-              <h4>Imported Token Balance:</h4>
-              <p>{importedTokenBalance} {tokenSymbol}</p>
             </div>
           )}
           <h3>Send ETH</h3>
