@@ -3,6 +3,7 @@ import { WebSocketProvider, formatEther, formatUnits, ethers } from 'ethers';
 import newAccount from './01_newAccount';
 import restoreWallet from './02_restoreWallet';
 import sendEth from './03_send';
+import { Container, Typography, TextField, Button, Card, CardContent, Grid } from '@mui/material';
 
 function App() {  
   const [password, setPassword] = useState(localStorage.getItem('password') || '');
@@ -21,7 +22,7 @@ function App() {
     return savedERC20TokenList[localStorage.getItem('address1')] || [];
   });
   const [importedTokenAddress, setImportedTokenAddress] = useState('');
-
+  
   // Update local storage whenever importedERC20TokenList changes
   useEffect(() => {
     if (address1) {
@@ -252,106 +253,140 @@ function App() {
   };
 
   return (
-    <div>
-      <h1>Smart Contract Wallet</h1>
-
+    <Container>
+      <Typography variant="h1">Smart Contract Wallet</Typography>
+    
       {!isLoggedIn ? (
         isFirstTime ? (
-          <div>
-            <h2>Set your password</h2>
-            <input
-              type="password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <button onClick={handleSetPassword}>Set Password</button>
-          </div>
+          <Card>
+            <CardContent>
+              <Typography variant="h2">Set your password</Typography>
+              <TextField
+                type="password"
+                label="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                fullWidth
+                margin="normal"
+              />
+              <Button variant="contained" color="primary" onClick={handleSetPassword}>
+                Set Password
+              </Button>
+            </CardContent>
+          </Card>
         ) : (
-          <div>
-            <h2>Enter your password</h2>
-            <input
-              type="password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <button onClick={handleLogin}>Login</button>
-          </div>
+          <Card>
+            <CardContent>
+              <Typography variant="h2">Enter your password</Typography>
+              <TextField
+                type="password"
+                label="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                fullWidth
+                margin="normal"
+              />
+              <Button variant="contained" color="primary" onClick={handleLogin}>
+                Login
+              </Button>
+            </CardContent>
+          </Card>
         )
       ) : (
         <div>
-          <h3>Create New Account</h3>
-          <button className="button" id="create-account" onClick={handleCreateAccount}>
+          <Typography variant="h3">Create New Account</Typography>
+          <Button variant="contained" color="primary" onClick={handleCreateAccount}>
             Create New Account
-          </button>
-
-          <h3>Restore Wallet</h3>
-          <input
+          </Button>
+    
+          <Typography variant="h3">Restore Wallet</Typography>
+          <TextField
             type="text"
+            label="Enter Seed Phrase"
             value={inputSeedPhrase}
-            placeholder="Enter Seed Phrase"
             onChange={(e) => setInputSeedPhrase(e.target.value)}
+            fullWidth
+            margin="normal"
           />
-          <button onClick={handleRestoreWallet}>Restore Wallet</button>
-
+          <Button variant="contained" color="primary" onClick={handleRestoreWallet}>
+            Restore Wallet
+          </Button>
+    
           {seedPhrase && (
-            <div>
-              <h4>Your Seed Phrase:</h4>
-              <p>{seedPhrase}</p>
-            </div>
+            <Card>
+              <CardContent>
+                <Typography variant="h4">Your Seed Phrase:</Typography>
+                <Typography>{seedPhrase}</Typography>
+              </CardContent>
+            </Card>
           )}
-
+    
           {address1 && (
-            <div key="123">
-              <h4>Your Wallet Address:</h4>
-              <p>{address1}</p>
-              <h4>Your Private Key:</h4>
-              <p>{privateKey}</p>
-              <h4>ETH Balance:</h4>
-              <p>{balance} ETH</p>
-            </div>
+            <Card key="123">
+              <CardContent>
+                <Typography variant="h4">Your Wallet Address:</Typography>
+                <Typography>{address1}</Typography>
+                <Typography variant="h4">Your Private Key:</Typography>
+                <Typography>{privateKey}</Typography>
+                <Typography variant="h4">ETH Balance:</Typography>
+                <Typography>{balance} ETH</Typography>
+              </CardContent>
+            </Card>
           )}
-
-          <h3>Import Token</h3>
-          <input
+    
+          <Typography variant="h3">Import Token</Typography>
+          <TextField
             type="text"
+            label="Enter Token Contract Address"
             value={importedTokenAddress}
-            placeholder="Enter Token Contract Address"
             onChange={(e) => setImportedTokenAddress(e.target.value)}
+            fullWidth
+            margin="normal"
           />
-          <button onClick={handleImportToken}>Import Token</button>
+          <Button variant="contained" color="primary" onClick={handleImportToken}>
+            Import Token
+          </Button>
           {Array.isArray(importedERC20TokenList) && importedERC20TokenList.length > 0 && (
-            <div>
-              <h4>Imported ERC20 Tokens:</h4>
-              {importedERC20TokenList.map(({ tokenSymbol, tokenContractAddress , balance}) => (
-                <div key={tokenContractAddress}>
-                  <p>Token: {tokenSymbol} </p>
-                  <p>Address: {tokenContractAddress}</p>
-                  <p>Balance: {balance}</p>
-                </div>
-              ))}
-            </div>
+            <Card>
+              <CardContent>
+                <Typography variant="h4">Imported ERC20 Tokens:</Typography>
+                {importedERC20TokenList.map(({ tokenSymbol, tokenContractAddress, balance }) => (
+                  <div key={tokenContractAddress}>
+                    <Typography>Token: {tokenSymbol}</Typography>
+                    <Typography>Address: {tokenContractAddress}</Typography>
+                    <Typography>Balance: {balance}</Typography>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
           )}
-          <h3>Send ETH</h3>
-          {showPrompt && <p>Please create or restore a wallet before sending ETH.</p>}
-          <input
+          <Typography variant="h3">Send ETH</Typography>
+          {showPrompt && <Typography>Please create or restore a wallet before sending ETH.</Typography>}
+          <TextField
             type="text"
+            label="Enter receiver address"
             value={inputReceiverAddress}
-            placeholder="Enter receiver address"
             onChange={(e) => setInputReceiverAddress(e.target.value)}
+            fullWidth
+            margin="normal"
           />
-          <input
+          <TextField
             type="text"
+            label="Enter ETH amount"
             value={inputEthAmount}
-            placeholder="Enter ETH amount"
             onChange={(e) => setInputEthAmount(e.target.value)}
+            fullWidth
+            margin="normal"
           />
-          <button onClick={handleSendEth}>Send ETH</button>
-          <button onClick={handleLogOut}>Log Out</button>
+          <Button variant="contained" color="primary" onClick={handleSendEth}>
+            Send ETH
+          </Button>
+          <Button variant="contained" color="secondary" onClick={handleLogOut}>
+            Log Out
+          </Button>
         </div>
       )}
-    </div>
+    </Container>
   );
 }
 
